@@ -6,7 +6,10 @@
   --line: #dce2e9;
   --accent: #315ce8;
   --soft: #eef2ff;
-  --green: #067a59;
+  --shadow: 0 2px 8px #14265008;
+  --surface-alt: #fafbfe;
+  --radius-sm: 8px;
+  --radius-xs: 5px;
   --radius: 14px;
   --space: 24px;
 }
@@ -35,7 +38,7 @@ button {
   border: 1px solid var(--line);
   background: var(--surface);
   padding: 9px 15px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   color: var(--ink);
 }
 button:hover {
@@ -158,7 +161,7 @@ h3 {
 #workspace {
   display: grid;
   grid-template-columns: 275px minmax(0, 1fr);
-  gap: 24px;
+  gap: var(--space);
 }
 aside {
   align-self: start;
@@ -184,7 +187,7 @@ aside {
 .problem.selected {
   background: var(--surface);
   border-color: var(--accent);
-  box-shadow: 0 2px 8px #14265008;
+  box-shadow: var(--shadow);
 }
 .problem-title {
   display: block;
@@ -216,7 +219,7 @@ article,
   color: var(--accent);
   font-size: 12px;
   padding: 3px 9px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
 }
 .description {
   white-space: pre-wrap;
@@ -227,12 +230,12 @@ article,
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
-  margin-bottom: 24px;
+  margin-bottom: var(--space);
 }
 .toolbar a {
   padding: 9px 15px;
   background: var(--soft);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   text-decoration: none;
 }
 .files {
@@ -259,7 +262,7 @@ article,
   white-space: nowrap;
   background: var(--bg);
   padding: 4px 8px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
 }
 textarea,
 input[type="text"],
@@ -268,9 +271,9 @@ input[type="number"] {
   width: 100%;
   padding: 12px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin: 8px 0 12px;
-  background: #fafbfe;
+  background: var(--surface-alt);
   color: var(--ink);
 }
 textarea {
@@ -291,7 +294,7 @@ input[type="file"] {
   overflow-wrap: anywhere;
 }
 .history {
-  margin-top: 24px;
+  margin-top: var(--space);
   border-top: 1px solid var(--line);
   padding-top: 20px;
 }
@@ -306,7 +309,7 @@ input[type="file"] {
 #notice:not(:empty) {
   background: var(--soft);
   padding: 12px 18px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin: 16px 0;
   color: var(--accent);
 }
@@ -324,7 +327,7 @@ footer {
   text-align: center;
   color: var(--muted);
   font-size: 12px;
-  padding: 24px;
+  padding: var(--space);
 }
 :focus-visible {
   outline: 3px solid var(--accent);
@@ -371,7 +374,7 @@ footer {
     font-size: 30px;
   }
   main {
-    padding: 24px 16px;
+    padding: var(--space) 16px;
   }
 }
 @media (max-width: 450px) {

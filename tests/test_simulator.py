@@ -8,7 +8,7 @@ import time
 import unittest
 from pathlib import Path
 from http.server import ThreadingHTTPServer
-from PIL import Image
+from PIL import Image, ImageDraw
 import server
 from simulator import (
     BY_ID,
@@ -53,10 +53,33 @@ class GradingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             grade(BY_ID["montage"], 0, b"broken")
         report = (
-            "# 현황\nAPI timeout\n검색 인덱스\n# 할 일\n23일 24일\n# 담당자\nMina Joon"
+            "# 현황\nAPI timeout 미해결 Mina 7월 23일\n검색 인덱스 미해결 Joon 07-24\n# 할 일\n개선 및 복구\n# 담당자\nMina Joon"
         )
         self.assertEqual(grade(BY_ID["handover"], 0, report)[0], 70)
         self.assertEqual(grade(BY_ID["handover"], 0, report + "\n미래 배포")[0], 60)
+
+    def test_montage_missing_features(self):
+        for color in ("#e8dfce", "#808080", "#ffffff", "#000000"):
+            with self.subTest(color=color):
+                score, _ = grade(BY_ID["montage"], 0, image_bytes(Image.new("RGB", (1024, 1024), color)))
+                self.assertLessEqual(score, 5)
+        oval = Image.new("RGB", (1024, 1024), "#e8dfce")
+        ImageDraw.Draw(oval).ellipse((240, 150, 784, 900), fill="#d7a47d")
+        self.assertLessEqual(grade(BY_ID["montage"], 0, image_bytes(oval))[0], 15)
+        missing_eyes = target_image()
+        ImageDraw.Draw(missing_eyes).rectangle((360, 385, 665, 460), fill="#d7a47d")
+        self.assertLess(grade(BY_ID["montage"], 0, image_bytes(missing_eyes))[0], 90)
+
+    def test_handover_semantics_dates_and_subheadings(self):
+        task = BY_ID["handover"]
+        for text in ("", "x", "API timeout Mina 123 검색 인덱스 Joon 2024"):
+            self.assertEqual(grade(task, 0, text)[0], 0)
+        report = "# 현황\n## API timeout\nAPI timeout 미해결 Mina 2025-07-23\n## 검색 인덱스\n검색 인덱스 복구 필요 Joon 7월 24일\n# 할 일\n복구\n# 담당자\nMina Joon"
+        self.assertEqual(grade(task, 0, report)[0], 70)
+        self.assertEqual(grade(task, 0, report.replace("미해결", "해결 완료"))[0], 50)
+        self.assertEqual(grade(task, 0, report + "\nAPI timeout 해결 완료")[0], 50)
+        self.assertEqual(grade(task, 0, report.replace("2025-07-23", "123").replace("7월 24일", "2024"))[0], 20)
+        self.assertEqual(grade(task, 0, report.replace("Mina", "Joon"))[0], 50)
 
 
 class APITests(unittest.TestCase):
@@ -178,6 +201,28 @@ class APITests(unittest.TestCase):
         self.assertEqual(self.submit(part="999")[0], 400)
         self.assertEqual(self.submit("menu", "2", True)[0], 400)
         self.assertEqual(self.submit("battle", "1", [])[0], 400)
+
+    def test_host_rebinding_media_and_body_limits(self):
+        cases = [
+            ({"Host": "evil.example:7101", "Origin": "http://evil.example:7101", "Content-Type": "application/json"}, 403),
+            ({"Content-Type": "text/plain"}, 415),
+            ({"Content-Type": "application/json", "Content-Length": str(server.MAX_BODY + 1)}, 413),
+            ({"Content-Type": "application/json", "Content-Length": "0"}, 413),
+        ]
+        for headers, expected in cases:
+            with self.subTest(headers=headers):
+                conn = http.client.HTTPConnection("127.0.0.1", self.http.server_port)
+                conn.request("POST", "/api/session", "{}", headers)
+                response = conn.getresponse()
+                self.assertEqual(response.status, expected)
+                response.read()
+                conn.close()
+        conn = http.client.HTTPConnection("127.0.0.1", self.http.server_port)
+        conn.request("GET", "/", headers={"Host": "evil.example"})
+        response = conn.getresponse()
+        self.assertEqual(response.status, 403)
+        response.read()
+        conn.close()
 
 
 if __name__ == "__main__":

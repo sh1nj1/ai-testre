@@ -2,6 +2,7 @@
 
 import io
 import json
+import re
 import zipfile
 from PIL import Image, ImageDraw
 
@@ -260,7 +261,7 @@ def tasks():
             "montage",
             "몽타주 · 이미지 재구성",
             "본선",
-            "brief.md의 묘사를 바탕으로 얼굴을 그리세요. 1024×1024 PNG/JPEG, 10MB 이하. 분당 1회, 같은 파일 재평가 불가. 최근 4건을 표시하고 최고점을 유지합니다. 자체 유사도: 64×64 RGB 픽셀의 평균 절대 오차. 점수 = min(100, 유사도 / 90 × 100). 의미 기반 얼굴 인식이 아닙니다.",
+            "brief.md의 묘사를 바탕으로 얼굴을 그리세요. 1024×1024 PNG/JPEG, 10MB 이하. 분당 1회, 같은 파일 재평가 불가. 최근 4건을 표시하고 최고점을 유지합니다. 자체 채점: 64×64 RGB에서 머리·눈·코·입 영역별 평균색 단색을 0점 기준으로 오차를 정규화하고, 네 영역 점수를 평균합니다. 의미 기반 얼굴 인식이 아닙니다.",
             [("1024×1024 이미지를 업로드하세요.", "image", 100)],
             {
                 "brief.md": "# 합성 인물 묘사\n베이지색 배경. 중앙의 타원형 얼굴, 따뜻한 갈색 피부. 위쪽의 짙은 검은 반원 머리카락. 작은 검은 타원 눈 두 개, 삼각형 코, 아래로 휜 갈색 입. 얼굴은 캔버스 중앙 대부분을 차지합니다.\n"
@@ -271,7 +272,7 @@ def tasks():
             "handover",
             "인수인계 · 시점 기반 요약",
             "본선",
-            "2025-07-21 기준으로 workspace.md를 요약하세요. template.md의 제목을 그대로 사용하고 완료·폐기된 이슈는 제외하세요. 자체 결정형 채점: 구조 20점, 활성 이슈 2개 각 20점, 폐기 정보 제외 10점.",
+            "2025-07-21 기준으로 workspace.md를 요약하세요. template.md의 제목을 그대로 사용하고 완료·폐기된 이슈는 제외하세요. 자체 결정형 채점: 구조 20점, 활성 이슈 2개 각 20점, 활성 이슈가 하나 이상 맞고 폐기 정보가 없으면 10점. 각 이슈는 한 줄에 이슈명·미해결 상태·담당자·기한을 함께 쓰세요. 날짜는 7월 23일, 07-23, 2025-07-23 형식(검색 이슈는 24일). ## 이하 소제목은 허용합니다.",
             [("template.md 구조의 Markdown 보고서를 제출하세요.", "markdown", 70)],
             {
                 "template.md": "# 현황\n\n# 할 일\n\n# 담당자\n",
@@ -325,41 +326,50 @@ def grade(t, part, answer):
             raise ValueError("유효한 이미지가 아닙니다.") from e
         target = target_image().resize((64, 64))
 
-        def sim(a, b):
-            pixels = list(a.get_flattened_data())
-            other = list(b.get_flattened_data())
-            error = sum(
-                abs(x - y) for aa, bb in zip(pixels, other) for x, y in zip(aa, bb)
-            ) / (len(pixels) * 3 * 255)
-            return round((1 - error) * 100, 2)
+        def similarity(box):
+            pixels = list(im.crop(box).get_flattened_data())
+            reference = list(target.crop(box).get_flattened_data())
+            # Normalize against a flat region so background coverage cannot earn points.
+            mean = tuple(sum(p[c] for p in reference) / len(reference) for c in range(3))
+            baseline = sum(abs(p[c] - mean[c]) for p in reference for c in range(3))
+            error = sum(abs(p[c] - q[c]) for p, q in zip(pixels, reference) for c in range(3))
+            return round(max(0, 1 - error / baseline) * 100, 2)
 
-        similarity = sim(im, target)
         regions = {
-            name: sim(im.crop(box), target.crop(box))
+            name: similarity(box)
             for name, box in {
-                "머리": (0, 0, 64, 24),
-                "눈": (0, 24, 64, 32),
-                "코": (0, 32, 64, 40),
-                "입": (0, 40, 64, 64),
+                "머리": (13, 4, 51, 25),
+                "눈": (21, 22, 44, 30),
+                "코": (28, 28, 36, 40),
+                "입": (23, 38, 41, 48),
             }.items()
         }
-        return round(min(100, similarity / 90 * 100), 2), dict(
-            similarity=similarity, regions=regions
-        )
+        score = round(sum(regions.values()) / len(regions), 2)
+        return score, dict(similarity=score, regions=regions)
     if p["type"] == "markdown":
         if not isinstance(answer, str):
             raise ValueError("Markdown 문자열이 필요합니다.")
-        headings = [
-            line.strip() for line in answer.splitlines() if line.startswith("#")
-        ]
-        structure = headings == ["# 현황", "# 할 일", "# 담당자"]
-        api = all(x in answer for x in ("API timeout", "Mina", "23"))
-        search = all(x in answer for x in ("검색 인덱스", "Joon", "24"))
-        excludes = not any(
+        headings = re.findall(r"^# ([^\n]+)$", answer, re.MULTILINE)
+        structure = [h.strip() for h in headings] == ["현황", "할 일", "담당자"]
+        lines = answer.splitlines()
+
+        def issue(name, owner, day):
+            mentions = [line for line in lines if name in line and not line.lstrip().startswith("#")]
+            contradictory = any(re.search(r"해결\s*완료|해결됨|완료됨|폐기|제외", line) for line in mentions)
+            date = rf"(?<![\d/-])(?:2025-)?0?7[-/]0?{day}(?!\d)|7월\s*{day}일(?!\d)"
+            return not contradictory and any(
+                re.search(rf"\b{owner}\b", line) and re.search(date, line)
+                and re.search(r"미해결|진행\s*중|개선\s*필요|복구\s*필요", line)
+                for line in mentions
+            )
+
+        api = issue("API timeout", "Mina", 23)
+        search = issue("검색 인덱스", "Joon", 24)
+        excludes = (api or search) and not any(
             x in answer for x in ("구형 로그인", "미래 배포", "2025-07-22")
         )
         return 20 * structure + 20 * api + 20 * search + 10 * excludes, dict(
-            structure=structure, api=api, search=search, excludes=excludes
+            structure=structure, api=bool(api), search=bool(search), excludes=bool(excludes)
         )
     if p["type"] == "number":
         if isinstance(answer, bool) or not isinstance(answer, (int, float)):

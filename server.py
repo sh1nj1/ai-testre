@@ -19,6 +19,7 @@ ROOT = Path(__file__).parent
 DB = Path(os.environ.get("SIM_DB", str(ROOT / "practice.sqlite3")))
 DURATION = 3 * 60 * 60
 MAX_BODY = 14 * 1024 * 1024
+ALLOWED_HOSTS = {"localhost", "127.0.0.1", *filter(None, os.environ.get("ALLOWED_HOSTS", "").split(","))}
 
 
 @contextmanager
@@ -100,7 +101,19 @@ class Handler(BaseHTTPRequestHandler):
             history=history,
         )
 
+    def valid_host(self):
+        try:
+            host = urlsplit("http://" + self.headers.get("Host", "")).hostname
+        except ValueError:
+            host = None
+        if host not in ALLOWED_HOSTS:
+            self.send(403, {"error": "허용되지 않은 호스트입니다."})
+            return False
+        return True
+
     def do_GET(self):
+        if not self.valid_host():
+            return
         path = urlsplit(self.path).path
         if path in ("/", "/app.js", "/style.css"):
             f = ROOT / "static" / ({"/": "index.html"}.get(path, path[1:]))
@@ -165,6 +178,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send(404, {"error": "찾을 수 없습니다."})
 
     def do_POST(self):
+        if not self.valid_host():
+            return
         # JSON-only endpoints plus an Origin check prevent cross-site local-server writes.
         origin = self.headers.get("Origin")
         if origin and origin not in (
@@ -270,6 +285,6 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", "7101"))
     if not 1 <= port <= 65535:
         raise SystemExit("PORT must be between 1 and 65535")
-    server = ThreadingHTTPServer((os.environ.get("HOST", "0.0.0.0"), port), Handler)
+    server = ThreadingHTTPServer((os.environ.get("HOST", "127.0.0.1"), port), Handler)
     print(f"AI TOP100 practice: http://localhost:{port}", flush=True)
     server.serve_forever()
