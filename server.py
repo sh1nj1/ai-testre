@@ -286,5 +286,5 @@ if __name__ == "__main__":
     if not 1 <= port <= 65535:
         raise SystemExit("PORT must be between 1 and 65535")
     server = ThreadingHTTPServer((os.environ.get("HOST", "127.0.0.1"), port), Handler)
-    print(f"AI TOP100 practice: http://localhost:{port}", flush=True)
+    print(f"AI Testre practice: http://localhost:{port}", flush=True)
     server.serve_forever()
