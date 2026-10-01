@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AI Testre · Practice Lab</title>
+    <link rel="stylesheet" href="/style.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="/">AI Testre <span>Practice Lab</span></a>
+      <nav>
+        <button id="problems-tab" class="nav active">문제</button
+        ><button id="ranking-tab" class="nav">로컬 랭킹</button>
+      </nav>
+      <span class="local">LOCAL / SYNTHETIC</span>
+    </header>
+    <main>
+      <section class="intro">
+        <div>
+          <p class="eyebrow">AI와 함께 풀고, 검증하고, 다시 도전하세요</p>
+          <h1>3시간, 당신의 AI 활용력.</h1>
+          <p class="muted">
+            2025 공개 문제 유형을 참고한 합성 연습 환경입니다.<br />모든
+            데이터·정답·점수는 자체 설계이며 공식 대회 결과와 다릅니다.
+          </p>
+        </div>
+        <div class="session-panel">
+          <div id="clock">연습을 시작하세요</div>
+          <div id="total">0 / 470점</div>
+          <div class="actions">
+            <button id="practice">연습 시작</button
+            ><button id="contest" class="primary">3시간 대회 시작</button>
+          </div>
+          <p class="muted small">
+            새로 시작하면 새 기록으로 전환됩니다. 기존 대회 기록은 랭킹에
+            남습니다.
+          </p>
+        </div>
+      </section>
+      <div id="notice" role="status" aria-live="polite"></div>
+      <section id="workspace">
+        <aside>
+          <div class="aside-title">CHALLENGES <span>08</span></div>
+          <div id="problem-list"></div>
+          <p class="aside-note">
+            원문 복사 → 데이터 다운로드 → 에이전트 분석 → 제출 → 피드백 확인
+          </p>
+        </aside>
+        <article id="detail" aria-live="polite"></article>
+      </section>
+      <section id="ranking" hidden>
+        <h2>로컬 대회 랭킹</h2>
+        <p class="muted">
+          이 서버에서 진행한 3시간 대회 기록입니다. 연습 기록은 제외됩니다.
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>순위</th>
+              <th>참가 기록</th>
+              <th>최고점 합계</th>
+            </tr>
+          </thead>
+          <tbody id="rank-body"></tbody>
+        </table>
+      </section>
+    </main>
+    <footer>
+      독립적인 비공식 연습 도구 · 원본 콘텐츠를 복제하지 않습니다 · 로컬 신뢰
+      환경에서 사용
+    </footer>
+  </body>
+</html>
